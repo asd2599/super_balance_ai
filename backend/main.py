@@ -31,24 +31,25 @@ app.include_router(config_router.router)
 # --------------------------------------------------------------------------
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 
-# assets 폴더가 존재하면 정적 파일로 마운트
-assets_path = os.path.join(frontend_path, "assets")
-if os.path.exists(assets_path):
-    app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
-
-# 그 외의 모든 경로(API 제외)는 React의 index.html로 연결 (SPA 대응)
+# API가 아닌 모든 GET 요청에 대해 정적 파일 존재 여부 확인 후 서빙
 @app.get("/{full_path:path}")
 async def serve_react_app(full_path: str):
-    # API 요청인데 여기까지 왔다면 404 처리
+    # 1. API 경로로 들어왔는데 라우터에서 매칭되지 않은 경우 (404)
     if full_path.startswith("api/"):
-        return {"detail": "Not Found"}
+        return {"detail": "API Not Found", "path": full_path}
     
-    # index.html 파일이 존재하면 서빙
+    # 2. 실제 파일이 존재하는지 확인 (favicon.svg, assets/*.js 등)
+    file_path = os.path.join(frontend_path, full_path)
+    if os.path.isfile(file_path):
+        return FileResponse(file_path)
+    
+    # 3. 그 외엔 SPA 라우팅을 위해 index.html 반환
     index_file = os.path.join(frontend_path, "index.html")
     if os.path.exists(index_file):
         return FileResponse(index_file)
     
     return {"message": "Frontend build not found. Please run 'npm run build' in the frontend directory."}
+
 
 
 if __name__ == "__main__":
