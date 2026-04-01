@@ -116,6 +116,26 @@ function App() {
     }
   };
 
+  const clearLogs = async () => {
+    if (!activeSpreadsheetId) return;
+    const confirmAction = window.confirm("정말로 이 스프레드시트의 모든 히스토리 정보를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.");
+    if (!confirmAction) return;
+
+    try {
+      const response = await fetch(`/api/action/logs?spreadsheet_id=${activeSpreadsheetId}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        alert("해당 시트의 히스토리가 완전히 초기화되었습니다.");
+        fetchLogs();
+      } else {
+        throw new Error("초기화 실패");
+      }
+    } catch(err) {
+      alert("히스토리 초기화 중 오류가 발생했습니다.");
+    }
+  };
+
 
   const handleMutation = async (url, method, description, bodyObj = null) => {
     if (!selectedSheet) return;
@@ -701,8 +721,17 @@ function App() {
             boxShadow: '0 4px 15px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: '15px'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0 }}>📜 PostgreSQL 영구 히스토리 로그</h2>
-              <button onClick={() => { fetchLogs(); }} style={{background:'transparent', border:'none', cursor:'pointer', fontSize:'1.2rem', color:'#007bff'}}>🔄</button>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <h2 style={{ margin: 0 }}>📜 PostgreSQL 영구 히스토리 로그</h2>
+                <button onClick={() => { fetchLogs(); }} style={{background:'transparent', border:'none', cursor:'pointer', fontSize:'1.2rem', color:'#007bff'}} title="새로고침">🔄</button>
+              </div>
+              <button 
+                onClick={clearLogs} 
+                style={{...btnStyle('#dc3545'), fontSize: '12px', padding: '4px 8px'}}
+                title="이 스프레드시트의 전체 기록을 삭제합니다"
+              >
+                히스토리 초기화 (Clear)
+              </button>
             </div>
             
             <p style={{ fontSize: '13px', color: '#666', margin: 0 }}>회색(취소선)으로 표시된 내역은 이미 Undo 되어 Redo 스택 큐로 넘어가 있는 작업입니다.</p>
