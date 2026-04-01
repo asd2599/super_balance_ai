@@ -53,4 +53,6 @@ async def serve_react_app(full_path: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Render.com 등 배포 환경의 PORT 변수를 우선 사용, 없으면 8000 사용
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
