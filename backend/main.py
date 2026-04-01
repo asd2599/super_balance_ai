@@ -9,9 +9,19 @@ from core.database import engine, Base
 # 서버 시작 전 DB 테이블 최초 생성 (ORM 스키마 로드)
 # Base 모델을 상속받은 모든 클래스들이 아직 DB에 없다면 테이블로 빌드합니다.
 from models.history_model import ActionHistory
+from sqlalchemy import text
+with engine.connect() as conn:
+    try:
+        # spreadsheet_id 컬럼이 있는지 확인하고 없으면 추가 (간이 마이그레이션)
+        conn.execute(text("ALTER TABLE action_history ADD COLUMN IF NOT EXISTS spreadsheet_id VARCHAR(100)"))
+        conn.commit()
+    except Exception as e:
+        print(f"Migration notice: {e}")
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Google Sheets AI APIs", description="Modularized API with Undo features")
+
 
 app.add_middleware(
     CORSMiddleware,

@@ -76,7 +76,7 @@ async def add_row(sheetId: int, req: RowRequest, spreadsheet_id: str = Query(...
         ).execute()
         
         # Undo history
-        push_action("ADD_ROW", {"sheetId": sheetId, "startIndex": start_index, "generatedData": new_rows, "numRows": req.num_rows})
+        push_action("ADD_ROW", {"sheetId": sheetId, "startIndex": start_index, "generatedData": new_rows, "numRows": req.num_rows}, spreadsheet_id)
 
         return {"message": f"AI 행 {req.num_rows}줄 일괄 추가 성공", "generated_data": new_rows}
     except Exception as e:
@@ -115,7 +115,7 @@ async def add_column(sheetId: int, req: ColumnRequest, spreadsheet_id: str = Que
 
         new_col_index = len(values[0]) - 1
         # Undo history
-        push_action("ADD_COLUMN", {"sheetId": sheetId, "startIndex": new_col_index, "generatedData": [req.new_column_name] + new_col_data})
+        push_action("ADD_COLUMN", {"sheetId": sheetId, "startIndex": new_col_index, "generatedData": [req.new_column_name] + new_col_data}, spreadsheet_id)
 
         return {"message": "AI 열 추가 성공"}
     except Exception as e:
@@ -145,7 +145,7 @@ async def delete_row(sheetId: int, row_index: int, spreadsheet_id: str = Query(.
         }
         service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=request_body).execute()
         
-        push_action("DELETE_ROW", {"sheetId": sheetId, "startIndex": row_index, "deletedData": deleted_data})
+        push_action("DELETE_ROW", {"sheetId": sheetId, "startIndex": row_index, "deletedData": deleted_data}, spreadsheet_id)
         return {"message": "행 삭제 성공"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"행 삭제 오류: {str(e)}")
@@ -180,7 +180,7 @@ async def delete_column(sheetId: int, col_index: int, spreadsheet_id: str = Quer
         }
         service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=request_body).execute()
         
-        push_action("DELETE_COLUMN", {"sheetId": sheetId, "startIndex": col_index, "deletedData": deleted_data, "numRows": len(values)})
+        push_action("DELETE_COLUMN", {"sheetId": sheetId, "startIndex": col_index, "deletedData": deleted_data, "numRows": len(values)}, spreadsheet_id)
         return {"message": "열 삭제 성공"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"열 삭제 오류: {str(e)}")
@@ -239,7 +239,7 @@ async def generate_action(req: GenerateSheetRequest, spreadsheet_id: str = Query
             body={"values": sheet_data}
         ).execute()
 
-        push_action("ADD_SHEET", {"sheetId": new_sheet_id, "sheetTitle": req.new_sheet_title, "generatedSheetData": sheet_data})
+        push_action("ADD_SHEET", {"sheetId": new_sheet_id, "sheetTitle": req.new_sheet_title, "generatedSheetData": sheet_data}, spreadsheet_id)
 
         return {"message": "시트 생성 성공", "sheetId": new_sheet_id, "title": req.new_sheet_title}
     except HTTPException as he:
@@ -279,7 +279,7 @@ async def modify_sheet(sheetId: int, req: ModifySheetRequest, spreadsheet_id: st
             body={"values": new_values}
         ).execute()
 
-        push_action("UPDATE_SHEET", {"sheetId": sheetId, "sheetTitle": sheet_title, "oldData": current_values, "newData": new_values})
+        push_action("UPDATE_SHEET", {"sheetId": sheetId, "sheetTitle": sheet_title, "oldData": current_values, "newData": new_values}, spreadsheet_id)
 
         return {"message": "AI 시트 내용 일괄 수정 성공"}
     except Exception as e:
@@ -312,7 +312,7 @@ async def rename_sheet(sheetId: int, req: RenameSheetRequest, spreadsheet_id: st
         
         service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=request_body).execute()
         
-        push_action("RENAME_SHEET", {"sheetId": sheetId, "oldTitle": current_title, "newTitle": req.new_title.strip()})
+        push_action("RENAME_SHEET", {"sheetId": sheetId, "oldTitle": current_title, "newTitle": req.new_title.strip()}, spreadsheet_id)
         
         return {"message": f"시트 이름이 '{req.new_title}'(으)로 변경되었습니다.", "new_title": req.new_title.strip()}
     except Exception as e:

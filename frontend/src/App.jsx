@@ -104,8 +104,9 @@ function App() {
   };
 
   const fetchLogs = async () => {
+    if (!activeSpreadsheetId) return;
     try {
-      const response = await fetch('/api/action/logs');
+      const response = await fetch(`/api/action/logs?spreadsheet_id=${activeSpreadsheetId}`);
       if (response.ok) {
         const result = await response.json();
         setLogsList(result.logs || []);
@@ -114,6 +115,7 @@ function App() {
       console.error(err);
     }
   };
+
 
   const handleMutation = async (url, method, description, bodyObj = null) => {
     if (!selectedSheet) return;

@@ -7,7 +7,9 @@ class ActionHistory(Base):
     __tablename__ = "action_history"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    spreadsheet_id = Column(String(100), nullable=True, index=True) # 어떤 시트에서 발생한 액션인지 식별
     action_type = Column(String(50), nullable=False)
     payload = Column(JSONB, nullable=False)  # PostgreSQL의 JSONB 사용으로 오브젝트 원형 보존
     is_undone = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+

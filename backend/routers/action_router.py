@@ -6,7 +6,7 @@ router = APIRouter(prefix="/api/action", tags=["Action"])
 
 @router.post("/undo")
 async def undo_last_action(spreadsheet_id: str = Query(...)):
-    action = pop_action()
+    action = pop_action(spreadsheet_id)
     if not action:
         raise HTTPException(status_code=400, detail="되돌릴 작업이 없습니다.")
 
@@ -121,7 +121,7 @@ async def undo_last_action(spreadsheet_id: str = Query(...)):
 
 @router.post("/redo")
 async def redo_last_action(spreadsheet_id: str = Query(...)):
-    action = pop_redo_action()
+    action = pop_redo_action(spreadsheet_id)
     if not action:
         raise HTTPException(status_code=400, detail="앞으로 돌릴 작업이 없습니다.")
 
@@ -258,14 +258,15 @@ async def redo_last_action(spreadsheet_id: str = Query(...)):
         raise HTTPException(status_code=500, detail=f"Redo 오류: {str(e)}")
 
 @router.get("/logs")
-async def get_action_logs():
-    """모든 히스토리 액션 기록을 반환합니다."""
+async def get_action_logs(spreadsheet_id: str = Query(..., description="필터링할 시트 ID")):
+    """특정 시트의 히스토리 액션 기록을 반환합니다."""
     from core.database import SessionLocal
     from models.history_model import ActionHistory
     
     db = SessionLocal()
     try:
-        logs = db.query(ActionHistory).order_by(ActionHistory.id.desc()).limit(100).all()
+        query = db.query(ActionHistory).filter(ActionHistory.spreadsheet_id == spreadsheet_id)
+        logs = query.order_by(ActionHistory.id.desc()).limit(100).all()
         result = []
         for log in logs:
             summary_txt = "AI 요약 내용 없음"
