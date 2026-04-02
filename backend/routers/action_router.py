@@ -40,7 +40,7 @@ async def undo_last_action(spreadsheet_id: str = Query(...)):
             reqs = [{"insertDimension": {"range": {"sheetId": sheet_id, "dimension": "ROWS", "startIndex": start_index, "endIndex": start_index + 1}}}]
             service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={"requests": reqs}).execute()
             
-            sheet_title = get_sheet_title(service, spreadsheet_id, sheet_id)
+            sheet_title = get_sheet_title(spreadsheet_id, sheet_id)
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
                 range=f"{sheet_title}!A{start_index+1}",
@@ -68,7 +68,7 @@ async def undo_last_action(spreadsheet_id: str = Query(...)):
                 return res
 
             col_letter = _col_idx_to_letter(start_index)
-            sheet_title = get_sheet_title(service, spreadsheet_id, sheet_id)
+            sheet_title = get_sheet_title(spreadsheet_id, sheet_id)
 
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
@@ -79,7 +79,7 @@ async def undo_last_action(spreadsheet_id: str = Query(...)):
         
         elif a_type == "UPDATE_SHEET":
             sheet_id = p["sheetId"]
-            sheet_title = get_sheet_title(service, spreadsheet_id, sheet_id)
+            sheet_title = get_sheet_title(spreadsheet_id, sheet_id)
             old_data = p["oldData"]
             
             service.spreadsheets().values().clear(
@@ -143,7 +143,7 @@ async def redo_last_action(spreadsheet_id: str = Query(...)):
             reqs = [{"insertDimension": {"range": {"sheetId": sheet_id, "dimension": "ROWS", "startIndex": start_index, "endIndex": start_index + num_rows}}}]
             service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={"requests": reqs}).execute()
             
-            sheet_title = get_sheet_title(service, spreadsheet_id, sheet_id)
+            sheet_title = get_sheet_title(spreadsheet_id, sheet_id)
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
                 range=f"{sheet_title}!A{start_index+1}",
@@ -168,7 +168,7 @@ async def redo_last_action(spreadsheet_id: str = Query(...)):
                 return res
 
             col_letter = _col_idx_to_letter(start_index)
-            sheet_title = get_sheet_title(service, spreadsheet_id, sheet_id)
+            sheet_title = get_sheet_title(spreadsheet_id, sheet_id)
             num_rows = len(generated_data)
 
             service.spreadsheets().values().update(
@@ -218,7 +218,7 @@ async def redo_last_action(spreadsheet_id: str = Query(...)):
 
         elif a_type == "UPDATE_SHEET":
             sheet_id = p["sheetId"]
-            sheet_title = get_sheet_title(service, spreadsheet_id, sheet_id)
+            sheet_title = get_sheet_title(spreadsheet_id, sheet_id)
             new_data = p["newData"]
             
             service.spreadsheets().values().clear(

@@ -1,11 +1,11 @@
 from core.database import SessionLocal
 from models.history_model import ActionHistory
+from services.ai_generator import summarize_action_with_ai
 
 def push_action(action_type: str, payload: dict, spreadsheet_id: str = None):
     db = SessionLocal()
     try:
         # AI 요약기 태우기
-        from services.ai_generator import summarize_action_with_ai
         summary_text = summarize_action_with_ai(action_type, payload)
         
         # 원본 보호를 위해 페이로드 복사본에 요약 주입 (JSONB 저장용)
@@ -57,6 +57,14 @@ def pop_action(spreadsheet_id: str):
         return action
     finally:
         db.close()
+
+def push_redo_action(action_dict: dict):
+    """
+    Undo 시점에 Redo 스택으로 이동시키는 로직.
+    DB 기반에서는 pop_action 시점에 이미 is_undone=True 처리가 되므로 별도 작업이 필요없으나,
+    인터페이스 호환성을 위해 유지합니다.
+    """
+    pass
 
 def pop_redo_action(spreadsheet_id: str):
     db = SessionLocal()

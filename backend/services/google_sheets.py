@@ -1,6 +1,7 @@
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from fastapi import HTTPException
+from functools import lru_cache
 from core.config import SERVICE_ACCOUNT_FILE, SCOPES
 
 def get_sheets_service():
@@ -14,8 +15,10 @@ def get_sheets_service():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Google API 인증 오류: {str(e)}")
 
-def get_sheet_title(service, spreadsheet_id: str, sheetId: int) -> str:
-    """sheetId를 기반으로 탭(시트)의 문자열 이름을 반환합니다."""
+@lru_cache(maxsize=128)
+def get_sheet_title(spreadsheet_id: str, sheetId: int) -> str:
+    """sheetId를 기반으로 탭(시트)의 문자열 이름을 반환합니다. (캐싱 적용)"""
+    service = get_sheets_service()
     sheet_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
     for sheet in sheet_metadata.get('sheets', []):
         if sheet.get("properties", {}).get("sheetId") == sheetId:

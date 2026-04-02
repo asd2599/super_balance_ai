@@ -550,14 +550,14 @@ function App() {
       {/* 🟢 우측 메인 영역 */}
       <div style={{ flex: 1, padding: '2rem', overflowX: 'auto', position: 'relative' }}>
         
+        {/* 💎 Premium Loading Overlay */}
         {loadingMutation && (
-          <div style={{
-            position: 'absolute', top: 10, right: 20, 
-            background: '#ffeb3b', padding: '15px 25px', borderRadius: '8px', 
-            fontWeight: 'bold', fontSize: '1.2rem',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)', zIndex: 9999
-          }}>
-            🤖 대기 중... 로딩이 완료될 때까지 기다려 주세요. (약 15초 소요)
+          <div className="loading-overlay">
+            <div className="loading-card">
+              <div className="loading-spinner"></div>
+              <p className="loading-text">🤖 AI가 데이터를 정밀하게 조율 중입니다...</p>
+              <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '-10px' }}>잠시만 기다려 주세요.</p>
+            </div>
           </div>
         )}
 
@@ -703,7 +703,7 @@ function App() {
             
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
               <button onClick={() => setShowModal(false)} style={btnStyle('#6c757d')}>취소</button>
-              <button onClick={handleCreateAISheet} style={btnStyle('#28a745')}>자동 생성 (15초 소요)</button>
+              <button onClick={handleCreateAISheet} style={btnStyle('#28a745')}>자동 생성 시작</button>
             </div>
           </div>
         </div>
