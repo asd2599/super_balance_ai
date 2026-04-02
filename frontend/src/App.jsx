@@ -462,6 +462,16 @@ function App() {
         display: 'flex',
         flexDirection: 'column'
       }}>
+        <h1 style={{ 
+          fontSize: '1.5rem', 
+          fontWeight: '800', 
+          margin: '0 0 1.5rem 0', 
+          color: '#333',
+          letterSpacing: '-0.5px'
+        }}>
+          Super-Balance <span style={{ color: '#6f42c1' }}>AI</span>
+        </h1>
+
         <button 
           onClick={() => setShowModal(true)}
           style={{...btnStyle('#6f42c1'), marginBottom: '1.5rem', width: '100%', fontSize: '1rem', padding: '12px'}}
