@@ -23,7 +23,25 @@ async def get_sheet_list(spreadsheet_id: str = Query(..., description="연결할
         ]
         return {"sheets": sheet_info_list}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"목록 조회 오류: {str(e)}")
+        error_msg = str(e)
+        print(f"[DEBUG] Google API Error: {error_msg}")
+        
+        if "403" in error_msg or "permission" in error_msg.lower():
+            from services.google_sheets import SERVICE_ACCOUNT_FILE
+            import json
+            import os
+            email = "Service Email"
+            if os.path.exists(SERVICE_ACCOUNT_FILE):
+                with open(SERVICE_ACCOUNT_FILE, "r") as f:
+                    email = json.load(f).get("client_email", email)
+            raise HTTPException(
+                status_code=403, 
+                detail=f"구글 시트 권한 부족: 해당 스프레드시트 상단의 '공유' 버튼을 클릭하여 아래 이메일을 '편집자'로 추가해 주세요.\n{email}"
+            )
+        elif "404" in error_msg or "not found" in error_msg.lower():
+            raise HTTPException(status_code=404, detail="스프레드시트를 찾을 수 없습니다. ID가 정확한지 확인해 주세요.")
+        
+        raise HTTPException(status_code=500, detail=f"목록 조회 오류: {error_msg}")
 
 @router.get("/{sheet_name}")
 async def get_sheet_data(sheet_name: str, spreadsheet_id: str = Query(...)):
@@ -245,10 +263,31 @@ async def generate_action(req: GenerateSheetRequest, background_tasks: Backgroun
         background_tasks.add_task(push_action, "ADD_SHEET", {"sheetId": new_sheet_id, "sheetTitle": req.new_sheet_title, "generatedSheetData": sheet_data}, spreadsheet_id)
 
         return {"message": "시트 생성 성공", "sheetId": new_sheet_id, "title": req.new_sheet_title}
-    except HTTPException as he:
-        raise he
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"생성 오류: {str(e)}")
+
+@router.post("/{sheetId}/init")
+async def init_sheet(sheetId: int, req: GenerateSheetRequest, background_tasks: BackgroundTasks, spreadsheet_id: str = Query(...)):
+    """현재 선택된 빈 시트를 AI 프롬프트 기반으로 초기화(데이터 채움)합니다."""
+    service = get_sheets_service()
+    try:
+        sheet_title = get_sheet_title(spreadsheet_id, sheetId)
+        sheet_data = generate_new_sheet(req.prompt)
+
+        # 현재 시트 내용 갱신 (헤더 포함)
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=f"{sheet_title}!A1",
+            valueInputOption="USER_ENTERED",
+            body={"values": sheet_data}
+        ).execute()
+
+        # 백그라운드 실행
+        background_tasks.add_task(push_action, "UPDATE_SHEET", {"sheetId": sheetId, "sheetTitle": sheet_title, "oldData": [], "newData": sheet_data}, spreadsheet_id)
+
+        return {"message": "시트 초기화 성공", "sheetId": sheetId, "title": sheet_title}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"시트 초기화 오류: {str(e)}")
 
 class ModifySheetRequest(BaseModel):
     prompt: str
@@ -314,12 +353,21 @@ async def rename_sheet(sheetId: int, req: RenameSheetRequest, background_tasks: 
             }]
         }
         
-        # 백그라운드 실행
+        # 실제 구글 API 호출 (이 부분이 누락되어 수정되지 않았음)
+        service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=request_body).execute()
+
+        # 캐시 초기화: 이름이 변경되었으므로 기존 sheetId -> title 매핑 캐시를 비웁니다.
+        # (이미 상단에서 임포트된 get_sheet_title 사용)
+        get_sheet_title.cache_clear()
+        
+        # 백그라운드 히스토리 기록
         background_tasks.add_task(push_action, "RENAME_SHEET", {"sheetId": sheetId, "oldTitle": current_title, "newTitle": req.new_title.strip()}, spreadsheet_id)
         
         return {"message": f"시트 이름이 '{req.new_title}'(으)로 변경되었습니다.", "new_title": req.new_title.strip()}
     except Exception as e:
+        error_msg = str(e)
+        print(f"[DEBUG] Rename Error: {error_msg}")
         # 중복된 이름 등 구글 API 에러 발생 시 처리
-        if "already exists" in str(e).lower():
+        if "already exists" in error_msg.lower():
             raise HTTPException(status_code=400, detail="이미 동일한 이름의 시트가 존재합니다.")
-        raise HTTPException(status_code=500, detail=f"시트 이름 변경 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"시트 이름 변경 오류: {error_msg}")

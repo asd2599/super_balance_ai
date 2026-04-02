@@ -36,6 +36,10 @@ function App() {
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [auditIssues, setAuditIssues] = useState([]);
 
+  // 빈 시트 초기화 모달 상태
+  const [showInitModal, setShowInitModal] = useState(false);
+  const [initPrompt, setInitPrompt] = useState('');
+
   // 시트 연결 및 인증 정보
   const [activeSpreadsheetId, setActiveSpreadsheetId] = useState('1gVBHcmkSASco3rDXxjTGXfaMjiWRjYtavBDVP6o41ss'); // Default for demo
   const [inputSpreadsheetId, setInputSpreadsheetId] = useState('1gVBHcmkSASco3rDXxjTGXfaMjiWRjYtavBDVP6o41ss');
@@ -63,7 +67,14 @@ function App() {
     try {
       const response = await fetch(`${API_BASE}?spreadsheet_id=${targetId}`);
       if (!response.ok) {
-        throw new Error(`시트 목록 요청 실패: ${response.status}`);
+        let errStr = `시트 목록 요청 실패 (${response.status})`;
+        try {
+          const errData = await response.json();
+          errStr += `: ${errData.detail || response.statusText}`;
+        } catch {
+          errStr += `: ${response.statusText}`;
+        }
+        throw new Error(errStr);
       }
       const result = await response.json();
       const sheets = result.sheets || [];
@@ -92,7 +103,14 @@ function App() {
     try {
       const response = await fetch(`${API_BASE}/${encodeURIComponent(sheetObj.title)}?spreadsheet_id=${activeSpreadsheetId}`);
       if (!response.ok) {
-        throw new Error(`데이터 요청 실패: ${response.status}`);
+        let errStr = `데이터 요청 실패 (${response.status})`;
+        try {
+          const errData = await response.json();
+          errStr += `: ${errData.detail || response.statusText}`;
+        } catch {
+          errStr += `: ${response.statusText}`;
+        }
+        throw new Error(errStr);
       }
       const result = await response.json();
       setSheetData(result.data || []);
@@ -319,14 +337,18 @@ function App() {
         throw new Error(errStr);
       }
       
-      // 이름 변경 성공 시 좌측 사이드바와 현재 시트 데이터를 전부 갱신
-      await fetchSheetList(activeSpreadsheetId);
-      // 제목을 바꿨으므로, selectedSheet 객체도 업데이트된 이름으로 가져올 필요가 있음.
-      // fetchSheetList 가 끝난 후 배열에서 찾아서 갱신
-      const updatedList = await (await fetch(`${API_BASE}?spreadsheet_id=${activeSpreadsheetId}`)).json();
-      const updatedSheet = updatedList.sheets.find(s => s.sheetId === selectedSheet.sheetId);
-      if (updatedSheet) fetchSheetData(updatedSheet);
+      // 이름 변경 성공 시 시트 목록을 새로 가져옵니다.
+      const updatedSheets = await fetchSheetList(activeSpreadsheetId);
       
+      // 변경된 정보를 바탕으로 현재 선택된 시트 객체를 갱신합니다.
+      const newSheetObj = updatedSheets.find(s => s.sheetId === selectedSheet.sheetId);
+      if (newSheetObj) {
+        setSelectedSheet(newSheetObj);
+        // 데이터 대시보드도 새로운 이름(범위)으로 다시 불러옵니다.
+        fetchSheetData(newSheetObj);
+      }
+      
+      alert(`시트 이름이 '${newName.trim()}'(으)로 변경되었습니다.`);
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -445,6 +467,40 @@ function App() {
       setShowAuditModal(true);
     } catch (err) {
       alert(`[검수 실패] ${err.message}`);
+    } finally {
+      setLoadingMutation(false);
+    }
+  };
+
+  const handleInitEmptySheet = async () => {
+    if (!selectedSheet || !activeSpreadsheetId) return;
+    if (!initPrompt.trim()) {
+      alert("AI에게 어떤 표를 만들지 알려주세요.");
+      return;
+    }
+    setLoadingMutation(true);
+    setShowInitModal(false);
+    try {
+      const response = await fetch(`${API_BASE}/${selectedSheet.sheetId}/init?spreadsheet_id=${activeSpreadsheetId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: initPrompt, new_sheet_title: selectedSheet.title })
+      });
+      if (!response.ok) {
+        let errStr = "시트 초기화 오류";
+        try {
+          const errData = await response.json();
+          errStr += `: ${errData.detail || response.statusText}`;
+        } catch {
+          errStr +=  `: ${response.status}`;
+        }
+        throw new Error(errStr);
+      }
+      alert("시트 초기화 성공!");
+      setInitPrompt('');
+      fetchSheetData(selectedSheet);
+    } catch (err) {
+      alert(`[초기화 실패] ${err.message}`);
     } finally {
       setLoadingMutation(false);
     }
@@ -640,9 +696,31 @@ function App() {
         
         {loadingData && <p>데이터를 불러오는 중입니다...</p>}
         {!loadingData && sheetData.length === 0 && selectedSheet && (
-          <div style={{ padding: '20px', background: '#f8f9fa', borderRadius: '8px' }}>
-            <p style={{ color: '#666' }}>현재 시트에 데이터가 비어있습니다.</p>
-            <button onClick={() => { setNewRowCount(1); setShowRowModal(true); }} style={btnStyle('#007bff')}>무작정 첫 데이터(AI 자동) 추가해보기</button>
+          <div style={{ 
+            padding: '40px 20px', 
+            background: '#f8f9fa', 
+            borderRadius: '12px', 
+            textAlign: 'center',
+            border: '2px dashed #ddd',
+            marginTop: '20px'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '10px' }}>📁</div>
+            <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>현재 시트에 데이터가 비어있습니다.</h3>
+            <p style={{ color: '#666', marginBottom: '20px' }}>AI를 활용해 이 시트의 첫 구조와 샘플 데이터를 즉석에서 생성해 볼까요?</p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+              <button 
+                onClick={() => { setInitPrompt(''); setShowInitModal(true); }} 
+                style={{...btnStyle('#6f42c1'), padding: '10px 20px', fontSize: '1rem'}}
+              >
+                ✨ AI로 시트 초기화하기
+              </button>
+              <button 
+                onClick={() => { setNewRowCount(1); setShowRowModal(true); }} 
+                style={{...btnStyle('#007bff'), padding: '10px 20px'}}
+              >
+                + 수동 행 추가
+              </button>
+            </div>
           </div>
         )}
 
@@ -935,6 +1013,38 @@ function App() {
             
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
               <button onClick={() => setShowAuditModal(false)} style={btnStyle('#6c757d')}>닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 🔮 AI 시트 초기화 모달 UI */}
+      {showInitModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000
+        }}>
+          <div style={{
+            background: 'white', padding: '30px', borderRadius: '12px', width: '400px',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: '15px'
+          }}>
+            <h2 style={{ margin: 0 }}>✨ AI로 빈 시트 채우기</h2>
+            <p style={{ fontSize: '14px', color: '#666', margin: 0 }}>이 시트('{selectedSheet?.title}')를 어떤 데이터 테이블로 만들까요?</p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <label style={{ fontWeight: 'bold' }}>데이터 테이블 정의 (Prompt)</label>
+              <textarea 
+                rows={4}
+                value={initPrompt} 
+                onChange={e => setInitPrompt(e.target.value)} 
+                placeholder="예: 캐릭터 성장을 위한 경험치 및 재화 밸런스 표, 전설급 무기의 티어별 강화 수치 테이블"
+                style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', resize: 'vertical' }}
+              />
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+              <button onClick={() => setShowInitModal(false)} style={btnStyle('#6c757d')}>취소</button>
+              <button onClick={handleInitEmptySheet} style={btnStyle('#6f42c1')}>생성 시작</button>
             </div>
           </div>
         </div>
