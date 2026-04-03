@@ -205,6 +205,32 @@ async def delete_column(sheetId: int, col_index: int, background_tasks: Backgrou
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"열 삭제 오류: {str(e)}")
 
+async def get_all_sheets_data(spreadsheet_id: str):
+    """스프레드시트 내의 모든 시트 데이터를 수집하여 딕셔너리 형태로 반환합니다."""
+    service = get_sheets_service()
+    try:
+        sheet_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        titles = [s.get("properties", {}).get("title") for s in sheet_metadata.get('sheets', [])]
+        if not titles: return {}
+        
+        # 모든 시트의 데이터를 한 번에 가져옵니다.
+        result = service.spreadsheets().values().batchGet(
+            spreadsheetId=spreadsheet_id,
+            ranges=titles
+        ).execute()
+        
+        value_ranges = result.get('valueRanges', [])
+        all_data = {}
+        for vr in value_ranges:
+            # 시트 이름 추출 ('Sheet1'!A1:Z100 형태 대응)
+            range_name = vr.get('range', '')
+            sheet_name = range_name.split('!')[0].strip("'")
+            all_data[sheet_name] = vr.get('values', [])
+        return all_data
+    except Exception as e:
+        print(f"Error fetching all sheets data: {e}")
+        return {}
+
 @router.post("/{sheetId}/audit")
 async def audit_sheet(sheetId: int, spreadsheet_id: str = Query(...)):
     """현재 시트를 AI에게 보내어 밸런스 이상을 스캔합니다."""
@@ -214,11 +240,11 @@ async def audit_sheet(sheetId: int, spreadsheet_id: str = Query(...)):
         result = service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=sheet_title).execute()
         current_values = result.get('values', [])
         
-        if not current_values or len(current_values) < 2:
-            return {"issues": [], "status": "no_data", "message": "검사할 데이터가 충분치 않습니다."}
+        # 현재 시트 데이터와 별개로 '전체 맥락'을 함께 수집
+        all_sheets_data = await get_all_sheets_data(spreadsheet_id)
 
         from services.ai_generator import audit_balance_anomalies
-        audit_result = audit_balance_anomalies(current_values)
+        audit_result = audit_balance_anomalies(current_values, all_sheets_data, sheet_title)
         return audit_result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"시트 검수 중 서버 오류가 발생했습니다: {str(e)}")
@@ -236,7 +262,9 @@ async def generate_action(req: GenerateSheetRequest, background_tasks: Backgroun
             if sheet.get("properties", {}).get("title") == req.new_sheet_title:
                 raise HTTPException(status_code=400, detail="해당 시트 제목은 이미 존재합니다.")
         
-        sheet_data = generate_new_sheet(req.prompt)
+        # 시트 간 연계성 강화를 위해 전체 맥락 수집 및 전달
+        all_sheets_data = await get_all_sheets_data(spreadsheet_id)
+        sheet_data = generate_new_sheet(req.prompt, all_sheets_data)
 
         # 3. 빈 시트 생성
         request_body = {
@@ -271,8 +299,9 @@ async def init_sheet(sheetId: int, req: GenerateSheetRequest, background_tasks: 
     """현재 선택된 빈 시트를 AI 프롬프트 기반으로 초기화(데이터 채움)합니다."""
     service = get_sheets_service()
     try:
-        sheet_title = get_sheet_title(spreadsheet_id, sheetId)
-        sheet_data = generate_new_sheet(req.prompt)
+        # 전체 맥락 수집 및 반영
+        all_sheets_data = await get_all_sheets_data(spreadsheet_id)
+        sheet_data = generate_new_sheet(req.prompt, all_sheets_data)
 
         # 현재 시트 내용 갱신 (헤더 포함)
         service.spreadsheets().values().update(
@@ -300,12 +329,12 @@ async def modify_sheet(sheetId: int, req: ModifySheetRequest, background_tasks: 
         result = service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=sheet_title).execute()
         current_values = result.get('values', [])
 
-        if not current_values:
-            raise HTTPException(status_code=400, detail="백업할 데이터 표의 셀이 하나도 없습니다.")
+        # 전체 시트 맥락 수집
+        all_sheets_context = await get_all_sheets_data(spreadsheet_id)
 
         # AI 호출로 전체 치환 및 번역, 갱신된 새로운 배열 획득
         from services.ai_generator import modify_sheet_content
-        new_values = modify_sheet_content(req.prompt, current_values)
+        new_values = modify_sheet_content(req.prompt, current_values, all_sheets_context, sheet_title)
 
         # 사이즈가 줄어드는 경우 지울 부분이 남을 수 있으므로 시트 싹 clear 처리 (범위 갱신)
         # 하지만 기존 구조를 파괴하지 말라고 지시했으므로 기본 clear->update 조합으로 깔끔하게.

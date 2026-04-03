@@ -244,3 +244,171 @@
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.7; transform: scale(0.98); }
 }
+
+/* 🚀 Onboarding Welcome View Styles */
+.welcome-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+  padding: 20px;
+}
+
+.welcome-card {
+  background: white;
+  max-width: 700px;
+  width: 100%;
+  padding: 40px;
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+  border: 1px solid #f0f0f0;
+  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.welcome-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.welcome-badge {
+  background: #f3e8ff;
+  color: #6f42c1;
+  padding: 6px 14px;
+  border-radius: 100px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: inline-block;
+  margin-bottom: 12px;
+}
+
+.welcome-header h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin: 0 0 10px 0;
+  color: #1a1a1a;
+  letter-spacing: -1px;
+}
+
+.welcome-header p {
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.guide-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.guide-step {
+  display: flex;
+  gap: 20px;
+}
+
+.step-number {
+  width: 36px;
+  height: 36px;
+  background: #6f42c1;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin-top: 4px;
+  box-shadow: 0 4px 10px rgba(111, 66, 193, 0.3);
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-content h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.25rem;
+  color: #333;
+}
+
+.step-content p {
+  margin: 0 0 15px 0;
+  color: #555;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.welcome-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #eee;
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.3s;
+  outline: none;
+}
+
+.welcome-input:focus {
+  border-color: #6f42c1;
+  box-shadow: 0 0 0 4px rgba(111, 66, 193, 0.1);
+}
+
+.email-copy-box {
+  background: #f8f9fa;
+  padding: 12px 16px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid #eee;
+}
+
+.email-copy-box code {
+  color: #e83e8c;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.copy-btn {
+  background: #343a40;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  margin-left: 10px;
+  transition: background 0.2s;
+}
+
+.copy-btn:hover {
+  background: #1a1a1a;
+}
+
+.connect-btn {
+  background: linear-gradient(135deg, #6f42c1 0%, #4c1d95 100%);
+  color: white;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  box-shadow: 0 10px 20px rgba(111, 66, 193, 0.2);
+  transition: all 0.3s;
+}
+
+.connect-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px rgba(111, 66, 193, 0.3);
+}
+
+.connect-btn:active {
+  transform: translateY(0);
+}

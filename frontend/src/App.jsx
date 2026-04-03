@@ -41,8 +41,8 @@ function App() {
   const [initPrompt, setInitPrompt] = useState('');
 
   // 시트 연결 및 인증 정보
-  const [activeSpreadsheetId, setActiveSpreadsheetId] = useState('1gVBHcmkSASco3rDXxjTGXfaMjiWRjYtavBDVP6o41ss'); // Default for demo
-  const [inputSpreadsheetId, setInputSpreadsheetId] = useState('1gVBHcmkSASco3rDXxjTGXfaMjiWRjYtavBDVP6o41ss');
+  const [activeSpreadsheetId, setActiveSpreadsheetId] = useState(''); // Empty by default
+  const [inputSpreadsheetId, setInputSpreadsheetId] = useState('');
   const [serviceEmail, setServiceEmail] = useState('');
 
   const API_BASE = '/api/sheets';
@@ -90,9 +90,15 @@ function App() {
 
   useEffect(() => {
     fetchConfig();
-    fetchSheetList(activeSpreadsheetId).then(sheets => {
-      if (sheets.length > 0) fetchSheetData(sheets[0]);
-    });
+    if (activeSpreadsheetId) {
+      fetchSheetList(activeSpreadsheetId).then(sheets => {
+        if (sheets.length > 0) fetchSheetData(sheets[0]);
+      });
+    } else {
+      setSheetList([]);
+      setSheetData([]);
+      setSelectedSheet(null);
+    }
   }, [activeSpreadsheetId]);
 
   const fetchSheetData = async (sheetObj) => {
@@ -363,9 +369,9 @@ function App() {
       alert("생성할 줄 수를 올바르게 입력해주세요 (최소 1줄).");
       return;
     }
-    if (count > 10) {
-      alert("AI 추론 안전을 위해 한 번에 최대 10줄까지만 생성 가능합니다.");
-      count = 10;
+    if (count > 50) {
+      alert("AI 추론 안정성과 데이터 정밀도를 위해 한 번에 최대 50줄까지만 생성 가능합니다.");
+      count = 50;
     }
     setShowRowModal(false);
     handleMutation(`${API_BASE}/${selectedSheet.sheetId}/rows`, 'POST', `AI 튜닝 행 ${count}줄 생성`, { num_rows: count });
@@ -506,6 +512,73 @@ function App() {
     }
   };
 
+  const renderWelcomeView = () => (
+    <div className="welcome-container">
+      <div className="welcome-card">
+        <div className="welcome-header">
+          <span className="welcome-badge">🚀 시작하기</span>
+          <p>AI 게임 밸런싱 도구를 시작하려면 먼저 구글 스프레드시트를 연결해야 합니다.</p>
+        </div>
+
+        <div className="guide-steps">
+          <div className="guide-step">
+            <div className="step-number">1</div>
+            <div className="step-content">
+              <h3>구글 시트 ID 입력</h3>
+              <p>연결할 스프레드시트의 URL에서 <code>/d/</code>와 <code>/edit</code> 사이의 긴 문자열을 복사하여 아래에 붙여넣으세요.</p>
+              <input 
+                value={inputSpreadsheetId}
+                onChange={e => setInputSpreadsheetId(e.target.value)}
+                placeholder="예: 1gVBHcmkSASco3rDXxjTGXfaMjiWRjYtavBDVP6o41ss"
+                className="welcome-input"
+              />
+            </div>
+          </div>
+
+          <div className="guide-step">
+            <div className="step-number">2</div>
+            <div className="step-content">
+              <h3>공유 이메일 추가</h3>
+              <p>구글 시트 우측 상단의 <b>[공유]</b> 버튼을 누르고 아래 이메일을 <b>'편집자'</b> 권한으로 추가해 주세요.</p>
+              <div className="email-copy-box">
+                <code>{serviceEmail || '로딩 중...'}</code>
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(serviceEmail);
+                    alert('서비스 이메일이 복사되었습니다.');
+                  }}
+                  className="copy-btn"
+                >
+                  📋 복사
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="guide-step">
+            <div className="step-number">3</div>
+            <div className="step-content">
+              <h3>연결 완료</h3>
+              <p>모든 준비가 끝났다면 아래 버튼을 눌러 AI 밸런스 작업을 시작하세요!</p>
+              <button 
+                onClick={() => {
+                  if(!inputSpreadsheetId.trim()){
+                    alert('스프레드시트 ID를 입력해 주세요!');
+                    return;
+                  }
+                  setActiveSpreadsheetId(inputSpreadsheetId.trim());
+                }}
+                className="connect-btn"
+              >
+                ⚡ 구글 시트 연결하기
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif' }}>
       
@@ -614,144 +687,148 @@ function App() {
       </div>
 
       {/* 🟢 우측 메인 영역 */}
-      <div style={{ flex: 1, padding: '2rem', overflowX: 'auto', position: 'relative' }}>
+      <div style={{ flex: 1, padding: '2rem', overflowX: 'auto', position: 'relative', display: 'flex', flexDirection: 'column' }}>
         
-        {/* 💎 Premium Loading Overlay */}
-        {loadingMutation && (
-          <div className="loading-overlay">
-            <div className="loading-card">
-              <div className="loading-spinner"></div>
-              <p className="loading-text">🤖 AI가 데이터를 정밀하게 조율 중입니다...</p>
-              <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '-10px' }}>잠시만 기다려 주세요.</p>
-            </div>
-          </div>
-        )}
-
-        {/* 상단 액션 복구 및 다운로드 영역 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            {selectedSheet && !loadingData && sheetData.length > 0 && (
-              <>
-                <button onClick={downloadCSV} style={{...btnStyle('#6c757d'), whiteSpace: 'nowrap', padding: '6px 12px', fontSize: '0.9rem'}} title="UTF-8 CSV 형식으로 다운로드">⬇️ CSV</button>
-                <button onClick={downloadJSON} style={{...btnStyle('#6c757d'), whiteSpace: 'nowrap', padding: '6px 12px', fontSize: '0.9rem'}} title="JSON 배열 형식으로 다운로드">⬇️ JSON</button>
-              </>
+        {!activeSpreadsheetId ? renderWelcomeView() : (
+          <>
+            {/* 💎 Premium Loading Overlay */}
+            {loadingMutation && (
+              <div className="loading-overlay">
+                <div className="loading-card">
+                  <div className="loading-spinner"></div>
+                  <p className="loading-text">🤖 AI가 데이터를 정밀하게 조율 중입니다...</p>
+                  <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '-10px' }}>잠시만 기다려 주세요.</p>
+                </div>
+              </div>
             )}
-          </div>
-          
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button 
-              onClick={() => { fetchLogs(); setShowLogsModal(true); }} 
-              style={{...btnStyle('#343a40'), padding: '6px 12px', fontSize: '0.9rem', whiteSpace: 'nowrap'}}
-              title="DB에 저장된 전체 작업 이력 열람"
-            >
-              📜 작업 로그 조회
-            </button>
-            <button 
-              onClick={handleUndo} 
-              style={{...btnStyle('#ff5722'), padding: '6px 12px', fontSize: '0.9rem', whiteSpace: 'nowrap'}}
-              title="방금 처리한 내용을 되돌립니다 (Undo)"
-            >
-              ↩️
-            </button>
-            <button 
-              onClick={handleRedo} 
-              style={{...btnStyle('#2e7d32'), padding: '6px 12px', fontSize: '0.9rem', whiteSpace: 'nowrap'}}
-              title="취소했던 내용을 다시 살려냅니다 (Redo)"
-            >
-              ↪️
-            </button>
-          </div>
-        </div>
 
-        {/* 테이블 타이틀 및 도구 영역 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '15px' }}>
-          <div>
-            {selectedSheet ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <h2 style={{ margin: 0 }}>{selectedSheet.title}</h2>
+            {/* 상단 액션 복구 및 다운로드 영역 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {selectedSheet && !loadingData && sheetData.length > 0 && (
+                  <>
+                    <button onClick={downloadCSV} style={{...btnStyle('#6c757d'), whiteSpace: 'nowrap', padding: '6px 12px', fontSize: '0.9rem'}} title="UTF-8 CSV 형식으로 다운로드">⬇️ CSV</button>
+                    <button onClick={downloadJSON} style={{...btnStyle('#6c757d'), whiteSpace: 'nowrap', padding: '6px 12px', fontSize: '0.9rem'}} title="JSON 배열 형식으로 다운로드">⬇️ JSON</button>
+                  </>
+                )}
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <button 
-                  onClick={handleRenameSheet}
-                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '18px', padding: 0 }}
-                  title="시트 이름 변경"
+                  onClick={() => { fetchLogs(); setShowLogsModal(true); }} 
+                  style={{...btnStyle('#343a40'), padding: '6px 12px', fontSize: '0.9rem', whiteSpace: 'nowrap'}}
+                  title="DB에 저장된 전체 작업 이력 열람"
                 >
-                  ✏️
+                  📜 작업 로그 조회
+                </button>
+                <button 
+                  onClick={handleUndo} 
+                  style={{...btnStyle('#ff5722'), padding: '6px 12px', fontSize: '0.9rem', whiteSpace: 'nowrap'}}
+                  title="방금 처리한 내용을 되돌립니다 (Undo)"
+                >
+                  ↩️
+                </button>
+                <button 
+                  onClick={handleRedo} 
+                  style={{...btnStyle('#2e7d32'), padding: '6px 12px', fontSize: '0.9rem', whiteSpace: 'nowrap'}}
+                  title="취소했던 내용을 다시 살려냅니다 (Redo)"
+                >
+                  ↪️
                 </button>
               </div>
-            ) : (
-              <h2 style={{ margin: 0 }}>시트를 선택해 주세요</h2>
-            )}
-          </div>
-          
-          {selectedSheet && !loadingData && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button onClick={() => { setModifyPrompt(''); setShowModifyModal(true); }} style={{...btnStyle('#17a2b8'), whiteSpace: 'nowrap'}}>
-                📝 AI 표 전체 수정
-              </button>
-              <button onClick={() => { setNewColName(''); setShowColModal(true); }} style={{...btnStyle('#28a745'), whiteSpace: 'nowrap'}}>+ AI 열 생성</button>
-              <button onClick={() => { setNewRowCount(1); setShowRowModal(true); }} style={{...btnStyle('#007bff'), whiteSpace: 'nowrap'}}>+ AI 행 생성</button>
-              <button onClick={handleAudit} style={{...btnStyle('#dc3545'), whiteSpace: 'nowrap'}} title="데이터를 스캔하여 비정상치 밸런스를 찾습니다.">⚠️ AI 밸런스 검사</button>
             </div>
-          )}
-        </div>
-        
-        {loadingData && <p>데이터를 불러오는 중입니다...</p>}
-        {!loadingData && sheetData.length === 0 && selectedSheet && (
-          <div style={{ 
-            padding: '40px 20px', 
-            background: '#f8f9fa', 
-            borderRadius: '12px', 
-            textAlign: 'center',
-            border: '2px dashed #ddd',
-            marginTop: '20px'
-          }}>
-            <div style={{ fontSize: '3rem', marginBottom: '10px' }}>📁</div>
-            <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>현재 시트에 데이터가 비어있습니다.</h3>
-            <p style={{ color: '#666', marginBottom: '20px' }}>AI를 활용해 이 시트의 첫 구조와 샘플 데이터를 즉석에서 생성해 볼까요?</p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
-              <button 
-                onClick={() => { setInitPrompt(''); setShowInitModal(true); }} 
-                style={{...btnStyle('#6f42c1'), padding: '10px 20px', fontSize: '1rem'}}
-              >
-                ✨ AI로 시트 초기화하기
-              </button>
-              <button 
-                onClick={() => { setNewRowCount(1); setShowRowModal(true); }} 
-                style={{...btnStyle('#007bff'), padding: '10px 20px'}}
-              >
-                + 수동 행 추가
-              </button>
-            </div>
-          </div>
-        )}
 
-        {!loadingData && sheetData.length > 0 && (
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f4f4f4' }}>
-                {headers.map((header, idx) => (
-                  <th key={header} style={thStyle}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{header}</span>
-                      <button onClick={() => deleteColumn(idx)} style={delBtnStyle} title="열 삭제">🗑</button>
-                    </div>
-                  </th>
-                ))}
-                <th style={{ ...thStyle, width: '60px' }}>관리</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sheetData.map((row, index) => (
-                <tr key={index} style={{ borderBottom: '1px solid #ddd' }}>
-                  {headers.map((header) => (
-                    <td key={header} style={tdStyle}>{row[header] || ''}</td>
+            {/* 테이블 타이틀 및 도구 영역 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '15px' }}>
+              <div>
+                {selectedSheet ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <h2 style={{ margin: 0 }}>{selectedSheet.title}</h2>
+                    <button 
+                      onClick={handleRenameSheet}
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '18px', padding: 0 }}
+                      title="시트 이름 변경"
+                    >
+                      ✏️
+                    </button>
+                  </div>
+                ) : (
+                  <h2 style={{ margin: 0 }}>시트를 선택해 주세요</h2>
+                )}
+              </div>
+              
+              {selectedSheet && !loadingData && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                  <button onClick={() => { setModifyPrompt(''); setShowModifyModal(true); }} style={{...btnStyle('#17a2b8'), whiteSpace: 'nowrap'}}>
+                    📝 AI 표 전체 수정
+                  </button>
+                  <button onClick={() => { setNewColName(''); setShowColModal(true); }} style={{...btnStyle('#28a745'), whiteSpace: 'nowrap'}}>+ AI 열 생성</button>
+                  <button onClick={() => { setNewRowCount(1); setShowRowModal(true); }} style={{...btnStyle('#007bff'), whiteSpace: 'nowrap'}}>+ AI 행 생성</button>
+                  <button onClick={handleAudit} style={{...btnStyle('#dc3545'), whiteSpace: 'nowrap'}} title="데이터를 스캔하여 비정상치 밸런스를 찾습니다.">⚠️ AI 밸런스 검사</button>
+                </div>
+              )}
+            </div>
+            
+            {loadingData && <p>데이터를 불러오는 중입니다...</p>}
+            {!loadingData && sheetData.length === 0 && selectedSheet && (
+              <div style={{ 
+                padding: '40px 20px', 
+                background: '#f8f9fa', 
+                borderRadius: '12px', 
+                textAlign: 'center',
+                border: '2px dashed #ddd',
+                marginTop: '20px'
+              }}>
+                <div style={{ fontSize: '3rem', marginBottom: '10px' }}>📁</div>
+                <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>현재 시트에 데이터가 비어있습니다.</h3>
+                <p style={{ color: '#666', marginBottom: '20px' }}>AI를 활용해 이 시트의 첫 구조와 샘플 데이터를 즉석에서 생성해 볼까요?</p>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                  <button 
+                    onClick={() => { setInitPrompt(''); setShowInitModal(true); }} 
+                    style={{...btnStyle('#6f42c1'), padding: '10px 20px', fontSize: '1rem'}}
+                  >
+                    ✨ AI로 시트 초기화하기
+                  </button>
+                  <button 
+                    onClick={() => { setNewRowCount(1); setShowRowModal(true); }} 
+                    style={{...btnStyle('#007bff'), padding: '10px 20px'}}
+                  >
+                    + 수동 행 추가
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!loadingData && sheetData.length > 0 && (
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f4f4f4' }}>
+                    {headers.map((header, idx) => (
+                      <th key={header} style={thStyle}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>{header}</span>
+                          <button onClick={() => deleteColumn(idx)} style={delBtnStyle} title="열 삭제">🗑</button>
+                        </div>
+                      </th>
+                    ))}
+                    <th style={{ ...thStyle, width: '60px' }}>관리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sheetData.map((row, index) => (
+                    <tr key={index} style={{ borderBottom: '1px solid #ddd' }}>
+                      {headers.map((header) => (
+                        <td key={header} style={tdStyle}>{row[header] || ''}</td>
+                      ))}
+                      <td style={tdStyle}>
+                        <button onClick={() => deleteRow(index + 1)} style={delBtnStyle} title="행 삭제">🗑</button>
+                      </td>
+                    </tr>
                   ))}
-                  <td style={tdStyle}>
-                    <button onClick={() => deleteRow(index + 1)} style={delBtnStyle} title="행 삭제">🗑</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                </tbody>
+              </table>
+            )}
+          </>
         )}
       </div>
 
