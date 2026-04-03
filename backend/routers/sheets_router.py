@@ -299,6 +299,7 @@ async def init_sheet(sheetId: int, req: GenerateSheetRequest, background_tasks: 
     """현재 선택된 빈 시트를 AI 프롬프트 기반으로 초기화(데이터 채움)합니다."""
     service = get_sheets_service()
     try:
+        sheet_title = get_sheet_title(spreadsheet_id, sheetId)
         # 전체 맥락 수집 및 반영
         all_sheets_data = await get_all_sheets_data(spreadsheet_id)
         sheet_data = generate_new_sheet(req.prompt, all_sheets_data)
